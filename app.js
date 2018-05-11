@@ -5,20 +5,22 @@ var phoneNumber = require('awesome-phonenumber');
 var Isemail = require('isemail');
 
 var inputFile = './input.csv';
+var names = [];
 var lines = [];
-var array = [];
-var users = [];
+var headers = [];
+var output = [];
 
 readFile()
     .then(function() {
-        return biuldObj(lines);
+//        return biuldObj(lines);
+
     })
     .then(function() {
         return mapJson();
     })
-    .then(function(output) {
-        output.forEach(function(item){console.log(item);});
+    .then(function() {
 //        console.log(output);
+        output.forEach(function (item) { console.log(item.addresses);});
     })
     .catch(function (e) {
         console.log("Something went wrong: ", e);
@@ -26,73 +28,88 @@ readFile()
  
 
 function mapJson() {
-
-    var output = [];
-    for (i = 0; i < array.length; i++) {
-        if (checkIfUserExist(array[i].fullname)) {
-            // complete an existing user
-
-        } else {
-            // add new user
+    return new Promise(function(resolve, reject) {
+        for (i = 1; i < lines.length; i++) {
             var obj = {};
             obj.addresses = [];
-            var keys = Object.keys(array[i]);
-            keys.forEach(function(key) {
-                if (key == 'fullname') {
-                    obj['fullname'] = array[i].fullname;
-                } else if (key == 'eid') {
-                    obj['eid'] = array[i].eid;
+            obj.classes = [];
+            for (j = 0; j < lines[i].length; j++) {
+                key = lines[0][j];
+                value = lines[i][j];
+                if (key == 'fullname' || key == 'eid') {
+                    obj[key] = value;
                 } else if (key == 'class') {
-                    obj['classes'] = getClasses(array[i].class);
-                } else if (key == 'invisible') {
-                    obj['invisible'] = array[i].invisible;
-                } else if (key == 'see_all') {
-                    obj['see_all'] = array[i].see_all;
-                } else if (array[i][key]){
-                    // don't hard code this keys
-                    var t = key.split(" ");
-                    var pn = new phoneNumber(array[i][key], 'BR');
-                    if (t[0] == 'phone' && (new phoneNumber(array[i][key], 'BR').isValid()) ) {
-                        // valid phone
-                        if (t[2]) {
-                            var temp = {
-                                "type" : t[0],
-                                "tags" : [t[1], t[2]],
-                                "address" : array[i][key]
-                            };
-                        } else {
-                            var temp = {
-                                "type" : t[0],
-                                "tags" : t[1],
-                                "address" : array[i][key]
-                            };
-                        }
-                    } else if (t[0] == 'email' && Isemail.validate(array[i][key]) ) {
-                        // valid email
-                        console.log(array[i][key], Isemail.validate(array[i][key]));
-                        if (t[2]) {
-                            var temp = {
-                                "type" : t[0],
-                                "tags" : [t[1], t[2]],
-                                "address" : array[i][key]
-                            };
-                        } else {
-                            var temp = {
-                                "type" : t[0],
-                                "tags" : t[1],
-                                "address" : array[i][key]
-                            };
-                        }
+                    insertClass(obj, key, value);
+                } else if (key == 'invisible' || key == 'see_all') {
+                    if ( value.indexOf('yes') >=0  || value.indexOf('1') >= 0 ) {
+                        obj[key] = true;
+                    } else {
+                        obj[key] = false;
                     }
-                    obj.addresses.push(temp);
+                } else {
+                    var s = key.split(" ");
+                    if (s[0] == 'phone') {
+                        insertPhone(obj, s, value);
+                    } else if ( s[0] == 'email') {
+                        insertEmail(obj, s, value);
+                    }
                 }
-            });
+            }
             output.push(obj);
-            users.push(array[i].fullname);
         }
-    } 
-    return output;   
+        resolve();
+    });
 }
+
+function insertPhone(obj, s, value) {
+    var vec  = value.split(",");
+    vec.forEach(function (item) {
+        if (new phoneNumber(item, 'BR').isValid()) {
+            var pn = new phoneNumber( item, 'BR' );
+            var n = pn.getNumber();
+            var number  = n.replace('+', '');
+            tags = [];
+            tags.push(s[1]);
+            if(s[2]) {
+                tags.push(s[2]);
+            }
+            var temp = {
+                "type" : s[0],
+                "tags" : tags,
+                "address" : number
+            };
+            obj.addresses.push(temp);
+        }
+    });
+}
+
+function insertEmail(obj, s, value) {
+    var a = value.replace('/', ' ');
+    var vec = a.split(/,| /);
+    vec.forEach(function (item) {
+        if (Isemail.validate(item)) {
+            tags = [];
+            tags.push(s[1]);
+            if(s[2]) {
+                tags.push(s[2]);
+            }
+            var temp = {
+                "type" : s[0],
+                "tags" : tags,
+                "address" : item
+            };
+            obj.addresses.push(temp);
+        }
+    });
+}
+
+function insertClass(obj, key, value) {
+    vec = getClasses(value);
+    vec.forEach(function (item) {
+        obj.classes[obj.classes.length] = item;
+    });
+}
+
 
 
 function getClasses(vec) {
@@ -105,33 +122,11 @@ function getClasses(vec) {
     return classes;
 }
 
-function checkIfUserExist(user) {
-    return users.some(function (x){ return x == user});
+
+function valueInVec(vec, value) {
+    return vec.some(function (x){ return x == value});
 }
 
-function biuldObj(data) {
-    return new Promise(function(resolve, reject) {
-        var fullnameIndex = data[0].indexOf('fullname');
-        for (line = 1; line < data.length; line++) {
-      
-                // add new user
-                var obj = {};
-                for(row = 0; row < data[line].length; row++) {
-                    key = data[0][row];
-                    value = data[line][row];
-                    if (!obj[key]) {
-                        // add new key
-                        obj[key] = value;
-                    } else {
-                        // old key
-                        obj[key] = obj[key] +", "+ value;
-                    }
-                }
-                array.push(obj);
-}
-        resolve();
-    });
-}
 
 
 function readFile() {
@@ -139,12 +134,31 @@ function readFile() {
         var parser = parse({delimiter: ','}, function (err, data) {
             if (err) throw err;
             else {
-                data.forEach(function(line) {
-                    lines.push(line);
-                });    
+                index = data[0].indexOf('fullname');
+                removeLineDuplications(data);
                 resolve();
             }
         });
         fs.createReadStream(inputFile).pipe(parser);
     });
 }
+
+
+function removeLineDuplications(data) {
+    for (i = 0; i < data.length; i++) {
+        if (valueInVec(names, data[i][index])) {
+            const linePosition = names.indexOf(data[i][index]);
+            for (j = 0; j < data[i].length; j++) {
+                if (lines[0][j] != 'fullname' && lines[0][j] != 'eid') {
+                    lines[linePosition][j] = lines[linePosition][j] + "," + data[i][j];
+                }
+            }
+        } else {
+            lines.push(data[i]);
+            names.push(data[i][index]);
+        }
+    }
+}
+
+
+

@@ -1,10 +1,10 @@
 var fs = require('fs');
 var parse = require('csv-parse');
-
 var phoneNumber = require('awesome-phonenumber');
 var Isemail = require('isemail');
 
 var inputFile = './input.csv';
+
 var names = [];
 var lines = [];
 var headers = [];
@@ -12,20 +12,16 @@ var output = [];
 
 readFile()
     .then(function() {
-//        return biuldObj(lines);
-
-    })
-    .then(function() {
         return mapJson();
     })
     .then(function() {
-//        console.log(output);
-        output.forEach(function (item) { console.log(item.addresses);});
+        console.log(output);
+        // Uncomment this line to see addresses details
+        //output.forEach(function (item) { console.log(item.addresses);});
     })
     .catch(function (e) {
         console.log("Something went wrong: ", e);
     });
- 
 
 function mapJson() {
     return new Promise(function(resolve, reject) {
@@ -69,9 +65,8 @@ function insertPhone(obj, s, value) {
             var n = pn.getNumber();
             var number  = n.replace('+', '');
             tags = [];
-            tags.push(s[1]);
-            if(s[2]) {
-                tags.push(s[2]);
+            for(k = 1; k < s.length; k++) {
+                tags.push(s[k]);
             }
             var temp = {
                 "type" : s[0],
@@ -110,8 +105,6 @@ function insertClass(obj, key, value) {
     });
 }
 
-
-
 function getClasses(vec) {
     var regex = RegExp('Sala','g');
     var temp;
@@ -122,12 +115,11 @@ function getClasses(vec) {
     return classes;
 }
 
-
 function valueInVec(vec, value) {
-    return vec.some(function (x){ return x == value});
+    return vec.some(function (x){
+        return x == value
+    });
 }
-
-
 
 function readFile() {
     return new Promise(function(resolve, reject){
@@ -142,7 +134,6 @@ function readFile() {
         fs.createReadStream(inputFile).pipe(parser);
     });
 }
-
 
 function removeLineDuplications(data) {
     for (i = 0; i < data.length; i++) {
@@ -159,6 +150,3 @@ function removeLineDuplications(data) {
         }
     }
 }
-
-
-
